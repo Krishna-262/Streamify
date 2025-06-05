@@ -5,6 +5,7 @@ import {
   getRecommendedUsers,
   getUserFriends,
   sendFriendRequest,
+  searchUsers,
 } from "../lib/api";
 import { Link } from "react-router";
 import { CheckCircleIcon, MapPinIcon, UserPlusIcon, UsersIcon } from "lucide-react";
@@ -13,6 +14,7 @@ import { capitialize } from "../lib/utils";
 
 import FriendCard, { getLanguageFlag } from "../components/FriendCard";
 import NoFriendsFound from "../components/NoFriendsFound";
+import { useRef } from "react";
 
 const HomePage = () => {
   const queryClient = useQueryClient();
@@ -36,6 +38,14 @@ const HomePage = () => {
   const { mutate: sendRequestMutation, isPending } = useMutation({
     mutationFn: sendFriendRequest,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["outgoingFriendReqs"] }),
+  });
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: searchedUsers = [], isLoading: loadingSearch } = useQuery({
+    queryKey: ["searchUsers", searchTerm],
+    queryFn: () => searchUsers(searchTerm),
+    enabled: searchTerm.trim().length > 0,  // only fetch if there's a search term
   });
 
   useEffect(() => {
@@ -81,11 +91,113 @@ const HomePage = () => {
                 <p className="opacity-70">
                   Discover perfect language exchange partners based on your profile
                 </p>
+
+                {/* Search input */}
+                <div className="mb-1 max-w-md pt-2 relative">
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="input input-bordered input-primary min-w-full pl-10"
+                    style={{ height: "2.5rem" }} // Ensure input height is consistent
+                  />
+                  <svg
+                    className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    style={{ lineHeight: 1 }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M10 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"></path>
+                  </svg>
+                </div>
+
+
               </div>
             </div>
           </div>
 
-          {loadingUsers ? (
+          {searchTerm.trim() ? (
+            loadingSearch ? (
+              <div className="flex justify-center py-12">
+                <span className="loading loading-spinner loading-lg" />
+              </div>
+            ) : searchedUsers.length === 0 ? (
+              <div className="card bg-base-200 p-6 text-center">
+                <h3 className="font-semibold text-lg mb-2">No users found</h3>
+                <p className="text-base-content opacity-70">Try another search query!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {searchedUsers.map((user) => {
+                  const hasRequestBeenSent = outgoingRequestsIds.has(user._id);
+
+                  return (
+                    <div
+                      key={user._id}
+                      className="card bg-base-200 hover:shadow-lg transition-all duration-300"
+                    >
+                      <div className="card-body p-5 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="avatar size-16 rounded-full">
+                            <img src={user.profilePic} alt={user.fullName} />
+                          </div>
+
+                          <div>
+                            <h3 className="font-semibold text-lg">{user.fullName}</h3>
+                            {user.location && (
+                              <div className="flex items-center text-xs opacity-70 mt-1">
+                                <MapPinIcon className="size-3 mr-1" />
+                                {user.location}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Languages with flags */}
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="badge badge-secondary">
+                            {getLanguageFlag(user.nativeLanguage)}
+                            Native: {capitialize(user.nativeLanguage)}
+                          </span>
+                          <span className="badge badge-outline">
+                            {getLanguageFlag(user.learningLanguage)}
+                            Learning: {capitialize(user.learningLanguage)}
+                          </span>
+                        </div>
+
+                        {user.bio && <p className="text-sm opacity-70">{user.bio}</p>}
+
+                        {/* Action button */}
+                        <button
+                          className={`btn w-full mt-2 ${hasRequestBeenSent ? "btn-disabled" : "btn-primary"
+                            } `}
+                          onClick={() => sendRequestMutation(user._id)}
+                          disabled={hasRequestBeenSent || isPending}
+                        >
+                          {hasRequestBeenSent ? (
+                            <>
+                              <CheckCircleIcon className="size-4 mr-2" />
+                              Request Sent
+                            </>
+                          ) : (
+                            <>
+                              <UserPlusIcon className="size-4 mr-2" />
+                              Send Friend Request
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : loadingUsers ? (
             <div className="flex justify-center py-12">
               <span className="loading loading-spinner loading-lg" />
             </div>
@@ -139,9 +251,8 @@ const HomePage = () => {
 
                       {/* Action button */}
                       <button
-                        className={`btn w-full mt-2 ${
-                          hasRequestBeenSent ? "btn-disabled" : "btn-primary"
-                        } `}
+                        className={`btn w-full mt-2 ${hasRequestBeenSent ? "btn-disabled" : "btn-primary"
+                          } `}
                         onClick={() => sendRequestMutation(user._id)}
                         disabled={hasRequestBeenSent || isPending}
                       >
@@ -167,6 +278,7 @@ const HomePage = () => {
       </div>
     </div>
   );
+
 };
 
 export default HomePage;

@@ -1,5 +1,20 @@
 import { axiosInstance } from "./axios";
 
+
+export async function searchUsers(searchTerm){
+  if (!searchTerm || searchTerm.trim() === "") return [];
+
+  try {
+    const response = await axiosInstance.get(`/users/search`, {
+      params: { query: searchTerm.trim() },
+    });
+    // Assuming API returns array of users in response.data
+    return response.data;
+  } catch (error) {
+    console.error("Failed to search users:", error);
+    return [];
+  }
+}
 export const signup = async (signupData) => {
   const response = await axiosInstance.post("/auth/signup", signupData);
   return response.data;

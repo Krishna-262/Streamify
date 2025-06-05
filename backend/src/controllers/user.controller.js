@@ -146,3 +146,22 @@ export async function getOutgoingFriendReqs(req, res) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
+
+export async function searchUsers(req, res) {
+  try {
+    const { query } = req.query;
+    if (!query) {
+      return res.status(400).json({ message: "Query param is required" });
+    }
+    // Simple case-insensitive partial match search on fullName
+    const users = await User.find({
+      fullName: { $regex: query, $options: "i" },
+      isOnboarded: true,
+    }).select("fullName profilePic nativeLanguage learningLanguage");
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("Error searching users:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
